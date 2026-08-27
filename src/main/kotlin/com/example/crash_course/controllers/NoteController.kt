@@ -3,6 +3,7 @@ package com.example.crash_course.controllers
 import com.example.crash_course.database.model.Note
 import com.example.crash_course.database.model.NoteRepository
 import org.bson.types.ObjectId
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import java.time.Instant
 
@@ -15,8 +16,7 @@ class NoteController(
         val id: String?,
         val color: Long,
         val title: String,
-        val content: String,
-        val ownerId: String
+        val content: String
     )
 
     data class NoteResponse(
@@ -31,13 +31,14 @@ class NoteController(
     fun save(
         @RequestBody body: NoteRequest
     ): NoteResponse {
+        val ownerId = (SecurityContextHolder.getContext().authentication?.principal ?: throw IllegalArgumentException("Owner ID not found")) as String
         val note = repository.save(
              Note(
                 id = body.id?.let { ObjectId(it) } ?: ObjectId.get(),
                 title = body.title,
                 color = body.color,
                 content = body.content,
-                ownerId = ObjectId(body.ownerId),
+                ownerId = ObjectId(ownerId),
                 createdAt = Instant.now()
             )
         )
@@ -46,9 +47,8 @@ class NoteController(
     }
 
     @GetMapping
-    fun findByOwnerId(
-        @RequestParam(required = true) ownerId: String
-    ): List<NoteResponse> {
+    fun findByOwnerId(): List<NoteResponse> {
+        val ownerId = (SecurityContextHolder.getContext().authentication?.principal ?: throw IllegalArgumentException("Owner ID not found")) as String
         return repository.findByOwnerId(ObjectId(ownerId)).map {
             it.toResponse()
         }
@@ -56,7 +56,17 @@ class NoteController(
 
     @DeleteMapping("/{id}")
     fun deleteById(@PathVariable id: ObjectId) {
-        repository.deleteById(ObjectId(id.toHexString()))
+        val note = repository.findById(ObjectId(id.toHexString())
+        ).orElseThrow { IllegalArgumentException("Note not found") }
+
+        val ownerId = (SecurityContextHolder.getContext().authentication?.principal ?: throw IllegalArgumentException("Owner ID not found")) as String
+
+        if (note.ownerId.toHexString() == ownerId) {
+            repository.deleteById(ObjectId(id.toHexString()))
+            return
+        }
+
+        throw IllegalArgumentException("You are not authorized to delete this note")
     }
 
     private fun Note.toResponse(): NoteController.NoteResponse {
