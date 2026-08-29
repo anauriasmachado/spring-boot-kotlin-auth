@@ -9,7 +9,7 @@ Kotlin 2.3 / Spring Boot 4.1 REST API on JVM 21, backed by MongoDB Atlas. JWT au
 ## Commands
 
 ```bash
-./gradlew build                                            # compile + test
+./gradlew build                                            # compile + test (requires JWT_SECRET_BASE64 + password)
 ./gradlew bootRun                                          # run the API on :8085 (needs env vars below)
 ./gradlew test --tests 'com.example.crash_course.security.*'   # fast unit tests — no Mongo, no env vars
 ./gradlew test --tests '*JwtServiceTest'                   # a single test class
